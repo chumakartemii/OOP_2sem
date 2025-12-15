@@ -1,41 +1,62 @@
 #include "contactmanager.h"
-#include <fstream>
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>
 #include <algorithm>
-#include <iostream>
-#include <stdexcept>
 
-ContactManager::ContactManager(const std::string& filename) : filename(filename) {
+ContactManager::ContactManager(QObject* parent) 
+    : QObject(parent), filename("contacts.txt") {
+    loadFromFile();
+}
+
+ContactManager::ContactManager(const QString& filename, QObject* parent)
+    : QObject(parent), filename(filename) {
     loadFromFile();
 }
 
 bool ContactManager::addContact(const Contact& contact) {
     if (!validateContact(contact)) {
+        qDebug() << "Contact validation failed";
         return false;
     }
     
-    contacts.push_back(contact);
-    return saveToFile();
+    contacts.append(contact);
+    bool saved = saveToFile();
+    if (saved) {
+        emit contactsChanged();
+    }
+    return saved;
 }
 
 bool ContactManager::removeContact(int index) {
     if (index < 0 || index >= contacts.size()) {
+        qDebug() << "Invalid index for removal:" << index;
         return false;
     }
     
-    contacts.erase(contacts.begin() + index);
-    return saveToFile();
+    contacts.removeAt(index);
+    bool saved = saveToFile();
+    if (saved) {
+        emit contactsChanged();
+    }
+    return saved;
 }
 
 bool ContactManager::editContact(int index, const Contact& newData) {
     if (index < 0 || index >= contacts.size() || !validateContact(newData)) {
+        qDebug() << "Invalid index or contact data for edit:" << index;
         return false;
     }
     
     contacts[index] = newData;
-    return saveToFile();
+    bool saved = saveToFile();
+    if (saved) {
+        emit contactsChanged();
+    }
+    return saved;
 }
 
-void ContactManager::sortByField(const std::string& field) {
+void ContactManager::sortByField(const QString& field) {
     if (field == "firstName") {
         std::sort(contacts.begin(), contacts.end(), 
             [](const Contact& a, const Contact& b) { 
@@ -57,50 +78,48 @@ void ContactManager::sortByField(const std::string& field) {
                 return a.getBirthDate() < b.getBirthDate(); 
             });
     }
+    
+    emit contactsChanged();
 }
 
-std::vector<Contact> ContactManager::search(const std::string& query) const {
-    std::vector<Contact> results;
-    std::string lowerQuery = query;
-    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+QList<Contact> ContactManager::search(const QString& query) const {
+    QList<Contact> results;
+    QString lowerQuery = query.toLower();
     
     for (const auto& contact : contacts) {
-        std::string firstName = contact.getFirstName();
-        std::string lastName = contact.getLastName();
-        std::string email = contact.getEmail();
+        QString firstName = contact.getFirstName().toLower();
+        QString lastName = contact.getLastName().toLower();
+        QString email = contact.getEmail().toLower();
+        QString patronymic = contact.getPatronymic().toLower();
         
-        std::transform(firstName.begin(), firstName.end(), firstName.begin(), ::tolower);
-        std::transform(lastName.begin(), lastName.end(), lastName.begin(), ::tolower);
-        std::transform(email.begin(), email.end(), email.begin(), ::tolower);
-        
-        if (firstName.find(lowerQuery) != std::string::npos ||
-            lastName.find(lowerQuery) != std::string::npos ||
-            email.find(lowerQuery) != std::string::npos) {
-            results.push_back(contact);
+        if (firstName.contains(lowerQuery) ||
+            lastName.contains(lowerQuery) ||
+            email.contains(lowerQuery) ||
+            patronymic.contains(lowerQuery) ||
+            contact.getAddress().toLower().contains(lowerQuery)) {
+            results.append(contact);
         }
     }
     
     return results;
 }
 
-std::vector<Contact> ContactManager::searchByField(const std::string& field, const std::string& value) const {
-    std::vector<Contact> results;
-    std::string lowerValue = value;
-    std::transform(lowerValue.begin(), lowerValue.end(), lowerValue.begin(), ::tolower);
+QList<Contact> ContactManager::searchByField(const QString& field, const QString& value) const {
+    QList<Contact> results;
+    QString lowerValue = value.toLower();
     
     for (const auto& contact : contacts) {
-        std::string fieldValue;
+        QString fieldValue;
         
         if (field == "firstName") fieldValue = contact.getFirstName();
         else if (field == "lastName") fieldValue = contact.getLastName();
         else if (field == "email") fieldValue = contact.getEmail();
         else if (field == "patronymic") fieldValue = contact.getPatronymic();
+        else if (field == "address") fieldValue = contact.getAddress();
         else continue;
         
-        std::transform(fieldValue.begin(), fieldValue.end(), fieldValue.begin(), ::tolower);
-        
-        if (fieldValue.find(lowerValue) != std::string::npos) {
-            results.push_back(contact);
+        if (fieldValue.toLower().contains(lowerValue)) {
+            results.append(contact);
         }
     }
     
@@ -108,22 +127,24 @@ std::vector<Contact> ContactManager::searchByField(const std::string& field, con
 }
 
 bool ContactManager::loadFromFile() {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         // Если файл не существует, это нормально - создадим его при сохранении
+        qDebug() << "File does not exist or cannot be opened:" << filename;
         return true;
     }
     
     contacts.clear();
-    std::string line;
+    QTextStream in(&file);
     
-    while (std::getline(file, line)) {
-        if (!line.empty()) {
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        if (!line.isEmpty()) {
             try {
                 Contact contact = Contact::fromString(line);
-                contacts.push_back(contact);
+                contacts.append(contact);
             } catch (const std::exception& e) {
-                std::cerr << "Error parsing contact: " << e.what() << std::endl;
+                qDebug() << "Error parsing contact:" << e.what();
             }
         }
     }
@@ -133,25 +154,28 @@ bool ContactManager::loadFromFile() {
 }
 
 bool ContactManager::saveToFile() const {
-    std::ofstream file(filename);
-    if (!file.is_open()) {
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qDebug() << "Cannot open file for writing:" << filename;
         return false;
     }
     
+    QTextStream out(&file);
+    
     for (const auto& contact : contacts) {
-        file << contact.toString() << "\n";
+        out << contact.toString() << "\n";
     }
     
     file.close();
     return true;
 }
 
-const std::vector<Contact>& ContactManager::getContacts() const {
+QList<Contact> ContactManager::getContacts() const {
     return contacts;
 }
 
 int ContactManager::getContactCount() const {
-    return static_cast<int>(contacts.size());
+    return contacts.size();
 }
 
 Contact ContactManager::getContact(int index) const {
@@ -165,5 +189,5 @@ bool ContactManager::validateContact(const Contact& contact) {
     return Contact::isValidName(contact.getFirstName()) &&
            Contact::isValidName(contact.getLastName()) &&
            Contact::isValidEmail(contact.getEmail()) &&
-           !contact.getPhoneNumbers().empty();
+           !contact.getPhoneNumbers().isEmpty();
 }

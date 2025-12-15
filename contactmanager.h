@@ -1,13 +1,17 @@
-#ifndef OOP_NEW_CONTACTMANAGER_H
-#define OOP_NEW_CONTACTMANAGER_H
+#ifndef CONTACTMANAGER_H
+#define CONTACTMANAGER_H
 
 #include "contact.h"
-#include <vector>
-#include <string>
+#include <QObject>
+#include <QList>
+#include <QString>
 
-class ContactManager {
+class ContactManager : public QObject {
+    Q_OBJECT
+
 public:
-    ContactManager(const std::string& filename = "contacts.txt");
+    explicit ContactManager(QObject* parent = nullptr);
+    ContactManager(const QString& filename, QObject* parent = nullptr);
 
     // Основные операции
     bool addContact(const Contact& contact);
@@ -15,25 +19,28 @@ public:
     bool editContact(int index, const Contact& newData);
 
     // Поиск и сортировка
-    void sortByField(const std::string& field);
-    std::vector<Contact> search(const std::string& query) const;
-    std::vector<Contact> searchByField(const std::string& field, const std::string& value) const;
+    void sortByField(const QString& field);
+    QList<Contact> search(const QString& query) const;
+    QList<Contact> searchByField(const QString& field, const QString& value) const;
 
     // Работа с файлами
     bool loadFromFile();
     bool saveToFile() const;
 
     // Геттеры
-    const std::vector<Contact>& getContacts() const;
+    QList<Contact> getContacts() const;
     int getContactCount() const;
     Contact getContact(int index) const;
 
     // Валидация
     static bool validateContact(const Contact& contact);
 
+signals:
+    void contactsChanged();
+
 private:
-    std::vector<Contact> contacts;
-    std::string filename;
+    QList<Contact> contacts;
+    QString filename;
 };
 
-#endif //OOP_NEW_CONTACTMANAGER_H
+#endif // CONTACTMANAGER_H
