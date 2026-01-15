@@ -1,60 +1,64 @@
-#ifndef OOP_NEW_CONTACT_H
-#define OOP_NEW_CONTACT_H
+#ifndef CONTACT_H
+#define CONTACT_H
 
-#include <string>
-#include <vector>
+#include <QString>
+#include <QStringList>
+#include <QDate>
+#include <QRegularExpression>
 
 class Contact {
 public:
     // Конструкторы
     Contact();
-    Contact(const std::string& firstName, const std::string& lastName,
-            const std::string& email, const std::string& phone);
+    Contact(const QString& firstName, const QString& lastName,
+            const QString& email, const QString& phone);
 
     // Геттеры
-    std::string getFirstName() const;
-    std::string getLastName() const;
-    std::string getPatronymic() const;
-    std::string getAddress() const;
-    std::string getBirthDate() const;
-    std::string getEmail() const;
-    std::vector<std::string> getPhoneNumbers() const;
+    QString getFirstName() const;
+    QString getLastName() const;
+    QString getPatronymic() const;
+    QString getAddress() const;
+    QDate getBirthDate() const;
+    QString getBirthDateString() const;
+    QString getEmail() const;
+    QStringList getPhoneNumbers() const;
 
     // Сеттеры
-    void setFirstName(const std::string& firstName);
-    void setLastName(const std::string& lastName);
-    void setPatronymic(const std::string& patronymic);
-    void setAddress(const std::string& address);
-    void setBirthDate(const std::string& birthDate);
-    void setEmail(const std::string& email);
-    void addPhoneNumber(const std::string& phone);
+    void setFirstName(const QString& firstName);
+    void setLastName(const QString& lastName);
+    void setPatronymic(const QString& patronymic);
+    void setAddress(const QString& address);
+    void setBirthDate(const QDate& birthDate);
+    void setBirthDate(const QString& birthDate);
+    void setEmail(const QString& email);
+    void addPhoneNumber(const QString& phone);
     void removePhoneNumber(int index);
-    void setPhoneNumbers(const std::vector<std::string>& phones);
+    void setPhoneNumbers(const QStringList& phones);
 
     // Методы сериализации
-    std::string toString() const;
-    static Contact fromString(const std::string& str);
+    QString toString() const;
+    static Contact fromString(const QString& str);
 
     // Валидация полей
-    static bool isValidName(const std::string& name);
-    static bool isValidPhone(const std::string& phone);
-    static bool isValidEmail(const std::string& email);
-    static bool isValidDate(const std::string& date);
+    static bool isValidName(const QString& name);
+    static bool isValidPhone(const QString& phone);
+    static bool isValidEmail(const QString& email);
+    static bool isValidDate(const QString& date);
 
     // Вспомогательные методы
-    static std::string trim(const std::string& str);
-    static std::string normalizePhone(const std::string& phone);
-    static std::string convertDateToStorageFormat(const std::string& date);
-    static std::string convertDateToDisplayFormat(const std::string& date);
+    static QString trim(const QString& str);
+    static QString normalizePhone(const QString& phone);
+    static QDate convertStringToDate(const QString& date);
+    static QString convertDateToString(const QDate& date);
 
 private:
-    std::string firstName;
-    std::string lastName;
-    std::string patronymic;
-    std::string address;
-    std::string birthDate;
-    std::string email;
-    std::vector<std::string> phoneNumbers;
+    QString firstName;
+    QString lastName;
+    QString patronymic;
+    QString address;
+    QDate birthDate;
+    QString email;
+    QStringList phoneNumbers;
 };
 
-#endif //OOP_NEW_CONTACT_H
+#endif // CONTACT_H
