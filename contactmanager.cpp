@@ -1,169 +1,327 @@
 #include "contactmanager.h"
-#include <fstream>
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>
 #include <algorithm>
-#include <iostream>
-#include <stdexcept>
+#include "databasestorage.h"
 
-ContactManager::ContactManager(const std::string& filename) : filename(filename) {
-    loadFromFile();
+ContactManager::ContactManager(QObject* parent)
+    : QObject(parent),
+    filename("contact.txt"),
+    storageType(FileStorage),
+    dbStorage(nullptr),
+    settings("MyCompany", "ContactManager")
+{
+    loadSettings();
+
+    if (storageType == DatabaseStorageType) {
+        dbStorage = new DatabaseStorage(this);
+        loadFromDatabase();
+    } else {
+        loadFromFile();
+    }
 }
 
-bool ContactManager::addContact(const Contact& contact) {
+ContactManager::ContactManager(const QString& filename, QObject* parent)
+    : QObject(parent),
+    filename(filename),
+    storageType(FileStorage),
+    dbStorage(nullptr),
+    settings("MyCompany", "ContactManager")
+{
+    if (storageType == DatabaseStorageType) {
+        dbStorage = new DatabaseStorage(this);
+        loadFromDatabase();
+    } else {
+        loadFromFile();
+    }
+}
+
+ContactManager::~ContactManager()
+{
+    saveSettings();
+    delete dbStorage;
+}
+
+void ContactManager::setStorageType(StorageType type)
+{
+    if (storageType != type) {
+        storageType = type;
+        saveSettings();
+        emit storageTypeChanged(type);
+        load();
+    }
+}
+
+StorageType ContactManager::getStorageType() const
+{
+    return storageType;
+}
+
+bool ContactManager::connectToDatabase(const QString& host, int port,
+                                       const QString& database,
+                                       const QString& user,
+                                       const QString& password)
+{
+    if (!dbStorage) {
+        dbStorage = new DatabaseStorage(this);
+    }
+
+    bool connected = dbStorage->connectToDatabase(host, port, database, user, password);
+    if (connected) {
+        storageType = DatabaseStorageType;
+        saveSettings();
+        emit databaseConnectionChanged(true);
+    }
+
+    return connected;
+}
+
+void ContactManager::disconnectDatabase()
+{
+    if (dbStorage) {
+        dbStorage->disconnect();
+        emit databaseConnectionChanged(false);
+    }
+}
+
+bool ContactManager::isDatabaseConnected() const
+{
+    return dbStorage && dbStorage->isConnected();
+}
+
+void ContactManager::setFileName(const QString& filename)
+{
+    this->filename = filename;
+    if (storageType == FileStorage) {
+        loadFromFile();
+    }
+}
+
+QString ContactManager::getFileName() const
+{
+    return filename;
+}
+
+bool ContactManager::addContact(const Contact& contact)
+{
     if (!validateContact(contact)) {
+        qDebug() << "Contact validation failed";
         return false;
     }
-    
-    contacts.push_back(contact);
-    return saveToFile();
+
+    if (storageType == DatabaseStorageType && dbStorage) {
+        bool success = dbStorage->addContact(contact);
+        if (success) {
+            contacts.append(contact);
+            emit contactsChanged();
+        }
+        return success;
+    }
+
+    contacts.append(contact);
+    bool saved = saveToFile();
+    if (saved) {
+        emit contactsChanged();
+    }
+    return saved;
 }
 
-bool ContactManager::removeContact(int index) {
+bool ContactManager::removeContact(int index)
+{
     if (index < 0 || index >= contacts.size()) {
+        qDebug() << "Invalid index for removal:" << index;
         return false;
     }
-    
-    contacts.erase(contacts.begin() + index);
-    return saveToFile();
-}
 
-bool ContactManager::editContact(int index, const Contact& newData) {
-    if (index < 0 || index >= contacts.size() || !validateContact(newData)) {
-        return false;
+    contacts.removeAt(index);
+
+    bool saved = false;
+    if (storageType == FileStorage) {
+        saved = saveToFile();
+    } else if (storageType == DatabaseStorageType && dbStorage) {
+        saved = dbStorage->saveContacts(contacts);
     }
-    
-    contacts[index] = newData;
-    return saveToFile();
-}
 
-void ContactManager::sortByField(const std::string& field) {
-    if (field == "firstName") {
-        std::sort(contacts.begin(), contacts.end(), 
-            [](const Contact& a, const Contact& b) { 
-                return a.getFirstName() < b.getFirstName(); 
-            });
-    } else if (field == "lastName") {
-        std::sort(contacts.begin(), contacts.end(), 
-            [](const Contact& a, const Contact& b) { 
-                return a.getLastName() < b.getLastName(); 
-            });
-    } else if (field == "email") {
-        std::sort(contacts.begin(), contacts.end(), 
-            [](const Contact& a, const Contact& b) { 
-                return a.getEmail() < b.getEmail(); 
-            });
-    } else if (field == "birthDate") {
-        std::sort(contacts.begin(), contacts.end(), 
-            [](const Contact& a, const Contact& b) { 
-                return a.getBirthDate() < b.getBirthDate(); 
-            });
+    if (saved) {
+        emit contactsChanged();
     }
+    return saved;
 }
 
-std::vector<Contact> ContactManager::search(const std::string& query) const {
-    std::vector<Contact> results;
-    std::string lowerQuery = query;
-    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
-    
-    for (const auto& contact : contacts) {
-        std::string firstName = contact.getFirstName();
-        std::string lastName = contact.getLastName();
-        std::string email = contact.getEmail();
-        
-        std::transform(firstName.begin(), firstName.end(), firstName.begin(), ::tolower);
-        std::transform(lastName.begin(), lastName.end(), lastName.begin(), ::tolower);
-        std::transform(email.begin(), email.end(), email.begin(), ::tolower);
-        
-        if (firstName.find(lowerQuery) != std::string::npos ||
-            lastName.find(lowerQuery) != std::string::npos ||
-            email.find(lowerQuery) != std::string::npos) {
-            results.push_back(contact);
-        }
-    }
-    
-    return results;
-}
-
-std::vector<Contact> ContactManager::searchByField(const std::string& field, const std::string& value) const {
-    std::vector<Contact> results;
-    std::string lowerValue = value;
-    std::transform(lowerValue.begin(), lowerValue.end(), lowerValue.begin(), ::tolower);
-    
-    for (const auto& contact : contacts) {
-        std::string fieldValue;
-        
-        if (field == "firstName") fieldValue = contact.getFirstName();
-        else if (field == "lastName") fieldValue = contact.getLastName();
-        else if (field == "email") fieldValue = contact.getEmail();
-        else if (field == "patronymic") fieldValue = contact.getPatronymic();
-        else continue;
-        
-        std::transform(fieldValue.begin(), fieldValue.end(), fieldValue.begin(), ::tolower);
-        
-        if (fieldValue.find(lowerValue) != std::string::npos) {
-            results.push_back(contact);
-        }
-    }
-    
-    return results;
-}
-
-bool ContactManager::loadFromFile() {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        // Если файл не существует, это нормально - создадим его при сохранении
+bool ContactManager::loadFromFile()
+{
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "File does not exist or cannot be opened:" << filename;
         return true;
     }
-    
+
     contacts.clear();
-    std::string line;
-    
-    while (std::getline(file, line)) {
-        if (!line.empty()) {
+    QTextStream in(&file);
+
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        if (!line.isEmpty()) {
             try {
-                Contact contact = Contact::fromString(line);
-                contacts.push_back(contact);
+                contacts.append(Contact::fromString(line));
             } catch (const std::exception& e) {
-                std::cerr << "Error parsing contact: " << e.what() << std::endl;
+                qDebug() << "Error parsing contact:" << e.what();
             }
         }
     }
-    
-    file.close();
+
     return true;
 }
 
-bool ContactManager::saveToFile() const {
-    std::ofstream file(filename);
-    if (!file.is_open()) {
+bool ContactManager::saveToFile() const
+{
+    QFile file(filename);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qDebug() << "Cannot open file for writing:" << filename;
         return false;
     }
-    
+
+    QTextStream out(&file);
     for (const auto& contact : contacts) {
-        file << contact.toString() << "\n";
+        out << contact.toString() << "\n";
     }
-    
-    file.close();
+
     return true;
 }
 
-const std::vector<Contact>& ContactManager::getContacts() const {
-    return contacts;
-}
-
-int ContactManager::getContactCount() const {
-    return static_cast<int>(contacts.size());
-}
-
-Contact ContactManager::getContact(int index) const {
-    if (index >= 0 && index < contacts.size()) {
-        return contacts[index];
+bool ContactManager::loadFromDatabase()
+{
+    if (!dbStorage || !dbStorage->isConnected()) {
+        return false;
     }
-    throw std::out_of_range("Index out of range");
+
+    if (!dbStorage->loadContacts(contacts)) {
+        return false;
+    }
+
+    emit contactsChanged();
+    return true;
 }
 
-bool ContactManager::validateContact(const Contact& contact) {
+bool ContactManager::saveToDatabase() const
+{
+    if (!dbStorage || !dbStorage->isConnected()) {
+        return false;
+    }
+
+    return dbStorage->saveContacts(contacts);
+}
+
+void ContactManager::saveSettings()
+{
+    settings.setValue("storageType", static_cast<int>(storageType));
+    settings.setValue("filename", filename);
+}
+
+void ContactManager::loadSettings()
+{
+    storageType = static_cast<StorageType>(
+        settings.value("storageType", FileStorage).toInt()
+        );
+    filename = settings.value("filename", "contact.txt").toString();
+}
+
+
+
+
+bool ContactManager::editContact(int index, const Contact& newData)
+{
+    if (index < 0 || index >= contacts.size()) {
+        return false;
+    }
+
+    contacts[index] = newData;
+
+    if (storageType == DatabaseStorageType && dbStorage) {
+        return dbStorage->saveContacts(contacts);
+    }
+
+    return saveToFile();
+}
+
+void ContactManager::sortByField(const QString& field)
+{
+    std::sort(contacts.begin(), contacts.end(),
+              [&](const Contact& a, const Contact& b) {
+                  if (field == "lastName") return a.getLastName() < b.getLastName();
+                  if (field == "firstName") return a.getFirstName() < b.getFirstName();
+                  if (field == "email") return a.getEmail() < b.getEmail();
+                  if (field == "birthDate") return a.getBirthDate() < b.getBirthDate();
+                  return false;
+              });
+
+    emit contactsChanged();
+}
+
+bool ContactManager::validateContact(const Contact& contact)
+{
     return Contact::isValidName(contact.getFirstName()) &&
            Contact::isValidName(contact.getLastName()) &&
            Contact::isValidEmail(contact.getEmail()) &&
-           !contact.getPhoneNumbers().empty();
+           !contact.getPhoneNumbers().isEmpty();
+}
+
+bool ContactManager::load()
+{
+    if (storageType == DatabaseStorageType) {
+        return loadFromDatabase();
+    }
+    return loadFromFile();
+}
+
+Contact ContactManager::getContact(int index) const
+{
+    if (index < 0 || index >= contacts.size()) {
+        return Contact();
+    }
+    return contacts[index];
+}
+
+QList<Contact> ContactManager::getContacts() const
+{
+    return contacts;
+}
+
+int ContactManager::getContactCount() const
+{
+    return contacts.size();
+}
+
+QList<Contact> ContactManager::search(const QString& query) const
+{
+    QList<Contact> result;
+    QString q = query.toLower();
+
+    for (const Contact& c : contacts) {
+        if (c.getFirstName().toLower().contains(q) ||
+            c.getLastName().toLower().contains(q) ||
+            c.getEmail().toLower().contains(q)) {
+            result.append(c);
+        }
+    }
+    return result;
+}
+
+QList<Contact> ContactManager::searchByField(const QString& field,
+                                             const QString& value) const
+{
+    QList<Contact> result;
+    QString v = value.toLower();
+
+    for (const Contact& c : contacts) {
+        if (field == "firstName" && c.getFirstName().toLower().contains(v))
+            result.append(c);
+        else if (field == "lastName" && c.getLastName().toLower().contains(v))
+            result.append(c);
+        else if (field == "email" && c.getEmail().toLower().contains(v))
+            result.append(c);
+    }
+
+    return result;
 }

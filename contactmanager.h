@@ -1,13 +1,25 @@
-#ifndef OOP_NEW_CONTACTMANAGER_H
-#define OOP_NEW_CONTACTMANAGER_H
+#ifndef CONTACTMANAGER_H
+#define CONTACTMANAGER_H
 
 #include "contact.h"
-#include <vector>
-#include <string>
 
-class ContactManager {
+#include <QObject>
+#include <QList>
+#include <QString>
+#include <QSettings>
+#include "databasestorage.h"
+enum StorageType {
+    FileStorage,
+    DatabaseStorageType
+};
+
+class ContactManager : public QObject {
+    Q_OBJECT
+
 public:
-    ContactManager(const std::string& filename = "contacts.txt");
+    explicit ContactManager(QObject* parent = nullptr);
+    ContactManager(const QString& filename, QObject* parent = nullptr);
+    ~ContactManager();
 
     // Основные операции
     bool addContact(const Contact& contact);
@@ -15,25 +27,55 @@ public:
     bool editContact(int index, const Contact& newData);
 
     // Поиск и сортировка
-    void sortByField(const std::string& field);
-    std::vector<Contact> search(const std::string& query) const;
-    std::vector<Contact> searchByField(const std::string& field, const std::string& value) const;
+    void sortByField(const QString& field);
+    QList<Contact> search(const QString& query) const;
+    QList<Contact> searchByField(const QString& field, const QString& value) const;
 
-    // Работа с файлами
+    // Работа с хранилищами
+    bool load();
+    bool save() const;
     bool loadFromFile();
     bool saveToFile() const;
+    bool loadFromDatabase();
+    bool saveToDatabase() const;
 
     // Геттеры
-    const std::vector<Contact>& getContacts() const;
+    QList<Contact> getContacts() const;
     int getContactCount() const;
     Contact getContact(int index) const;
 
     // Валидация
     static bool validateContact(const Contact& contact);
 
+    // Управление хранилищем
+    void setStorageType(StorageType type);
+    StorageType getStorageType() const;
+
+    // Настройки базы данных
+    bool connectToDatabase(const QString& host, int port,
+                           const QString& database, const QString& user,
+                           const QString& password);
+    void disconnectDatabase();
+    bool isDatabaseConnected() const;
+
+    // Настройки файла
+    void setFileName(const QString& filename);
+    QString getFileName() const;
+
+signals:
+    void contactsChanged();
+    void storageTypeChanged(StorageType type);
+    void databaseConnectionChanged(bool connected);
+
 private:
-    std::vector<Contact> contacts;
-    std::string filename;
+    QList<Contact> contacts;
+    QString filename;
+    StorageType storageType;
+    DatabaseStorage* dbStorage;
+    QSettings settings;
+
+    void saveSettings();
+    void loadSettings();
 };
 
-#endif //OOP_NEW_CONTACTMANAGER_H
+#endif // CONTACTMANAGER_H

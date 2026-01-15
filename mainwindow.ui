@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1000</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Менеджер контактов</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+
+    <!-- Панель поиска -->
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QLabel" name="searchLabel">
+        <property name="text">
+         <string>Поиск:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="searchLineEdit"/>
+      </item>
+      <item>
+       <widget class="QPushButton" name="searchButton">
+        <property name="text">
+         <string>Найти</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="clearSearchButton">
+        <property name="text">
+         <string>Очистить</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="sortLabel">
+        <property name="text">
+         <string>Сортировка:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="sortComboBox"/>
+      </item>
+     </layout>
+    </item>
+
+    <!-- Таблица контактов -->
+    <item>
+     <widget class="QTableWidget" name="tableWidget"/>
+    </item>
+
+    <!-- Форма добавления/редактирования контакта -->
+    <item>
+     <layout class="QFormLayout" name="formLayout">
+
+      <item row="0" column="0">
+       <widget class="QLabel" name="firstNameLabel">
+        <property name="text">
+         <string>Имя:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="firstNameLineEdit"/>
+      </item>
+
+      <item row="1" column="0">
+       <widget class="QLabel" name="lastNameLabel">
+        <property name="text">
+         <string>Фамилия:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="lastNameLineEdit"/>
+      </item>
+
+      <item row="2" column="0">
+       <widget class="QLabel" name="patronymicLabel">
+        <property name="text">
+         <string>Отчество:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="patronymicLineEdit"/>
+      </item>
+
+      <item row="3" column="0">
+       <widget class="QLabel" name="emailLabel">
+        <property name="text">
+         <string>Email:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="emailLineEdit"/>
+      </item>
+
+      <item row="4" column="0">
+       <widget class="QLabel" name="phoneLabel">
+        <property name="text">
+         <string>Телефон:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLineEdit" name="phoneLineEdit"/>
+      </item>
+
+      <item row="5" column="0">
+       <widget class="QLabel" name="addressLabel">
+        <property name="text">
+         <string>Адрес:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QPlainTextEdit" name="addressLineEdit"/>
+      </item>
+
+      <item row="6" column="0">
+       <widget class="QLabel" name="birthDateLabel">
+        <property name="text">
+         <string>Дата рождения:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QDateEdit" name="birthDateEdit">
+        <property name="calendarPopup">
+         <bool>true</bool>
+        </property>
+        <property name="displayFormat">
+         <string>dd.MM.yyyy</string>
+        </property>
+        <property name="date">
+         <date>2000-01-01</date>
+        </property>
+       </widget>
+      </item>
+
+     </layout>
+    </item>
+
+    <!-- Кнопки действий -->
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QPushButton" name="saveButton">
+        <property name="text">
+         <string>Сохранить</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="addButton">
+        <property name="text">
+         <string>Добавить</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="editButton">
+        <property name="text">
+         <string>Редактировать</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="deleteButton">
+        <property name="text">
+         <string>Удалить</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+
+    <!-- Статус -->
+    <item>
+     <widget class="QLabel" name="statusLabel">
+      <property name="text">
+       <string>Всего контактов: 0</string>
+      </property>
+     </widget>
+    </item>
+
+   </layout>
+  </widget>
+ </widget>
+
+ <resources/>
+ <connections>
+  <connection>
+   <sender>saveButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>onSaveButtonClicked()</slot>
+  </connection>
+  <connection>
+   <sender>addButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_addButton_clicked()</slot>
+  </connection>
+  <connection>
+   <sender>editButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_editButton_clicked()</slot>
+  </connection>
+  <connection>
+   <sender>deleteButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_deleteButton_clicked()</slot>
+  </connection>
+  <connection>
+   <sender>searchButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_searchButton_clicked()</slot>
+  </connection>
+  <connection>
+   <sender>clearSearchButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_clearSearchButton_clicked()</slot>
+  </connection>
+  <connection>
+   <sender>sortComboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>on_sortComboBox_currentIndexChanged(int)</slot>
+  </connection>
+ </connections>
+
+ <slots>
+  <slot>onSaveButtonClicked()</slot>
+  <slot>on_addButton_clicked()</slot>
+  <slot>on_editButton_clicked()</slot>
+  <slot>on_deleteButton_clicked()</slot>
+  <slot>on_searchButton_clicked()</slot>
+  <slot>on_clearSearchButton_clicked()</slot>
+  <slot>on_sortComboBox_currentIndexChanged(int)</slot>
+ </slots>
+</ui>
